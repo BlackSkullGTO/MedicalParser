@@ -1,0 +1,19 @@
+# 1. Создать venv
+python3 -m venv venv
+
+# 2. Активировать
+source venv/bin/activate
+
+# 3. Установить Python-зависимости
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 4. Установить системные библиотеки (пока пусто)
+sudo apt-get install -y
+
+# 5. Установить браузеры Playwright
+playwright install chromium
+playwright install-deps chromium
+
+# 6. Скопировать .env и запускать
+cp .env.example .env
