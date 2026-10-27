@@ -1,13 +1,10 @@
-"""Реестр сайтов и базовый адаптер для скачивания CSV."""
-
 from __future__ import annotations
 
-import csv
-import io
-from abc import ABC
 from dataclasses import dataclass, field
+import logging
 from typing import Optional
 
+from app.core.enums import DownloadEnum, LoginEnum, ParseEnum
 from app.core.utils import is_archive, unarchive
 
 
@@ -17,72 +14,102 @@ class SiteConfig:
 
     name: str
     url: str
-    download_button_selector: str  # CSS-селектор кнопки «Скачать CSV»
-    login_required: bool = False
+
+    login = LoginEnum.NONE
+    download = DownloadEnum.REGULAR
+    parse = ParseEnum.REGULAR
+
+    download_btn_name: str  = 'CSV'
+
     login_url: Optional[str] = None
     login_selector_username: Optional[str] = None
     login_selector_password: Optional[str] = None
     login_button_selector: Optional[str] = None
-    expected_columns: Optional[list[str]] = None
-    # Дополнительные произвольные параметры сайта (селекторы, куки и т.д.)
+
+    columns: Optional[list[str]] = None
+
     extra: dict = field(default_factory=dict)
 
 
-class BaseSiteAdapter(ABC):
+class BaseSiteAdapter:
     """Базовый адаптер сайта."""
 
-    def __init__(self, config: SiteConfig):
+    def __init__(self, site_name, config: SiteConfig):
+        self.site_name = site_name
         self.config = config
+        self.logger = logging.getLogger(__name__)
 
-    async def login(self, page) -> None:
-        """Авторизуется на сайте.
-        
-        Args:
-            page: Ссылка на страницу.
-        """
+    def log(self, msg: str, *args):
+        self.logger.info(f'Сайт {self.site_name}. {msg}', *args)
 
-        return None
+    async def goto_page(self, page, timeout):
+        self.log('Открываю url=%s', self.config.url)
 
-    async def click_download(self, page) -> None:
+        await page.goto(
+            self.config.url,
+            wait_until='networkidle',
+            timeout=timeout,
+        )
+
+    async def login(self, page):
+        if not self.config.login == LoginEnum.NONE:
+            fn = LoginEnum.get(self.config.login)
+            
+            self.log('Авторизовываюсь')
+
+            await fn(self, page)
+
+    async def click_download(self, page, timeout):
         """Нажимает кнопку скачивания CSV.
         
         Args:
             page: Ссылка на страницу.
         """
 
-        await page.get_by_role('button', name='Скачать').click()
-        download_button = page.get_by_role('button', name='CSV')
-        await download_button.wait_for(state='visible', timeout=10000)
-        await download_button.click()
+        fn = DownloadEnum.get(self.config.download)
 
-    async def parse_csv(self, content: bytes) -> list[dict]:
+        self.log('Нажимаю кнопку скачать')
+        async with page.expect_download(timeout=timeout) as download_info:
+            await fn(self, page)
+
+        return download_info
+
+    async def parse_csv(self, data: bytes) -> list[dict]:
         """Парсит байты CSV в список словарей. Можно переопределить.
 
         Args:
-            content: Скачанные данные в байтах.
+            data: Скачанные данные в байтах.
 
         Returns:
             Данные после парсинга в формате списка словарей.
         """
 
+        self.log('Скачал %d байтов', len(data))
+
         if archive_type := is_archive(content):
             content = unarchive(content, archive_type)
-            
-        text = content.decode("utf-8-sig")
-        reader = csv.DictReader(io.StringIO(text))
 
-        return [row for row in reader]
+        fn = ParseEnum.get(self.config.parse)
+        rows = await fn(self, data)
+        self.log('Получил таблицу из %d строк', len(rows))
+
+        return rows
 
 
-# ==================== РЕЕСТР САЙТОВ ====================
-# Программист добавляет новые сайты сюда.
-# Пример для тестового сайта:
 SITES_REGISTRY: dict[str, SiteConfig] = {
     'test_site': SiteConfig(
-        name='Международная статистическая классификация болезней и проблем, связанных со здоровьем (10-й пересмотр)',
+        name='Тестовый сайт',
         url='https://nsi.rosminzdrav.ru/dictionaries/1.2.643.5.1.13.13.11.1005/passport/latest?ysclid=mvfchjewq1253804421',
-        download_button_selector='button:text-is("CSV")',
-        login_required=False,
+
+        login=LoginEnum.NONE,
+        download=DownloadEnum.DROPDOWN,
+        parse=ParseEnum.REGULAR,
+
+        download_btn_name='CSV',
+
+        extra={
+            'dropdown_btn_name': 'Скачать',
+        },
     ),
 }
 
@@ -91,3 +118,20 @@ SITE_ADAPTERS: dict[str, type[BaseSiteAdapter]] = {}
 # Пример:
 # from app.scraper.adapters.complex_site import ComplexSiteAdapter
 # SITE_ADAPTERS["complex_site"] = ComplexSiteAdapter
+
+
+def get_adapter(site_name: str) -> BaseSiteAdapter:
+    """Возвращает адаптер сайта.
+    
+    Args:
+        site_name: Название сайта.
+        config (SiteConfig): Конфиг сайта.
+
+    Returns:
+        Найденный адаптер сайта, либо BaseSiteAdapter.
+    """
+
+    adapter_cls = SITE_ADAPTERS.get(site_name, BaseSiteAdapter)
+    config = SITES_REGISTRY[site_name]
+
+    return adapter_cls(site_name, config)
