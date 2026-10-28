@@ -1,17 +1,20 @@
-from enum import Enum
+from app.core.functions import (
+    dropdown_download,
+    none_login,
+    regular_download,
+    regular_parse,
+)
 
-from app.core.functions import dropdown_download, none_login, regular_download, regular_parse
 
-
-class GetEnum(str, Enum):
+class BaseEnumerate:
     values = {}
 
     @classmethod
     def get(cls, key):
         return cls.values.get(key)
+    
 
-
-class DownloadEnum(GetEnum):
+class DownloadEnum(BaseEnumerate):
 
     REGULAR = 'regular'
     DROPDOWN = 'dropdown'
@@ -22,7 +25,7 @@ class DownloadEnum(GetEnum):
     }
 
 
-class LoginEnum(GetEnum):
+class LoginEnum(BaseEnumerate):
 
     NONE = 'none'
 
@@ -31,7 +34,7 @@ class LoginEnum(GetEnum):
     }
 
 
-class ParseEnum(GetEnum):
+class ParseEnum(BaseEnumerate):
 
     REGULAR = 'regular'
 

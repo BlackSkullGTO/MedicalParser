@@ -15,11 +15,11 @@ class SiteConfig:
     name: str
     url: str
 
-    login = LoginEnum.NONE
-    download = DownloadEnum.REGULAR
-    parse = ParseEnum.REGULAR
+    login: str
+    download: str
+    parse: str
 
-    download_btn_name: str  = 'CSV'
+    download_btn_name: str
 
     login_url: Optional[str] = None
     login_selector_username: Optional[str] = None
