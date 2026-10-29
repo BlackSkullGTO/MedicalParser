@@ -1,9 +1,14 @@
 from logging.config import fileConfig
 import os
+import sys
 
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from app.db.models import Base
 
 config = context.config
 
@@ -30,7 +35,7 @@ db_url = (
 )
 config.set_main_option("sqlalchemy.url", _to_sync_url(db_url))
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
