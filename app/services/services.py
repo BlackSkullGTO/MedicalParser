@@ -9,8 +9,9 @@ from __future__ import annotations
 import uuid
 from typing import Optional
 
-from app.core.sites import SITES_REGISTRY
-from app.db.repository import create_task, save_parsed_rows, update_task_status
+from app.sites import SITES_REGISTRY
+from app.db.models import TaskStatus
+from app.db.repository import create_task, save_site_rows, update_task_status
 from app.scraper.downloader import download_site_csv
 
 
@@ -44,16 +45,16 @@ async def run_site(site_name: str, task_id: Optional[uuid.UUID] = None) -> uuid.
     if task_id is None:
         task_id = await create_task(site_name)
 
-    await update_task_status(task_id, "running")
+    await update_task_status(task_id, TaskStatus.RUNNING)
 
     try:
         ensure_site_exists(site_name)
         rows = await download_site_csv(site_name)
-        await save_parsed_rows(task_id, site_name, rows)
+        await save_site_rows(task_id, site_name, rows)
     except Exception as exc:
-        await update_task_status(task_id, "failed", str(exc))
+        await update_task_status(task_id, TaskStatus.FAILED, str(exc))
         raise
     else:
-        await update_task_status(task_id, "success")
+        await update_task_status(task_id, TaskStatus.SUCCESS)
 
     return task_id

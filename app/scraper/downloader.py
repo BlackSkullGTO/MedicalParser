@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from playwright.async_api import async_playwright
 
-from app.core.sites import get_adapter
+from app.sites import get_adapter
 
 PAGE_LOAD_TIMEOUT_MS = 30_000
 DOWNLOAD_TIMEOUT_MS = 60_000
@@ -31,7 +31,7 @@ async def download_site_csv(site_name: str) -> list[dict]:
             await adapter.goto_page(page, PAGE_LOAD_TIMEOUT_MS)
             await adapter.login(page)
             
-            download_info = await adapter.click_download(page)
+            download_info = await adapter.click_download(page, DOWNLOAD_TIMEOUT_MS)
             download = await download_info.value
             path = await download.path()
 

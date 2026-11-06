@@ -8,7 +8,9 @@ from alembic import context
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import app.sites  # noqa: F401  # регистрирует ORM-модели всех сайтов в Base.metadata
 from app.db.models import Base
+from app.settings import settings
 
 config = context.config
 
@@ -26,13 +28,8 @@ def _to_sync_url(url: str) -> str:
     return url
 
 
-# Приоритет URL: ALEMBIC_DATABASE_URL -> DATABASE_URL -> alembic.ini
-db_url = (
-    os.getenv("ALEMBIC_DATABASE_URL")
-    or os.getenv("DATABASE_URL")
-    or config.get_main_option("sqlalchemy.url")
-    or ""
-)
+# Единый источник DSN — app.settings (значения из .env).
+db_url = settings.ALEMBIC_DATABASE_URL or config.get_main_option("sqlalchemy.url") or ""
 config.set_main_option("sqlalchemy.url", _to_sync_url(db_url))
 
 target_metadata = Base.metadata
@@ -62,6 +59,8 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Таймзона сессии PostgreSQL для миграций (created_at/updated_at).
+        connect_args={"options": f"-c timezone={settings.TIMEZONE}"},
     )
 
     with connectable.connect() as connection:

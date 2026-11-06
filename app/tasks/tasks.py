@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import functools
 import uuid
 from typing import Optional
 
 from celery.utils.time import get_exponential_backoff_interval
 
 from app.db.connection import close_pool
-from app.db.repository import create_task
 from app.services.services import run_site
 from app.worker import celery_app
 

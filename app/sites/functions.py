@@ -36,6 +36,6 @@ async def none_login(self, page):
 
 async def regular_parse(self, data: bytes) -> list[dict]:
     text = data.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text))
+    reader = csv.DictReader(io.StringIO(text), delimiter=';')
 
     return [row for row in reader]

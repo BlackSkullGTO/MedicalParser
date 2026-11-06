@@ -8,9 +8,9 @@ import sys
 from alembic import command as alembic_command
 from alembic.config import Config
 
-from app.core.enums import LoginEnum
+from app.sites.enums import LoginEnum
 from app.settings import settings
-from app.core.sites import SITES_REGISTRY
+from app.sites import SITES_REGISTRY
 from app.services.services import UnknownSiteError, run_site
 from app.tasks.tasks import download_csv_task
 from app.worker import celery_app
@@ -73,6 +73,21 @@ def build_parser() -> argparse.ArgumentParser:
         '--revision',
         default='head',
         help='Целевая ревизия.',
+    )
+
+    makemigration_parser = subparsers.add_parser(
+        'makemigration',
+        help='Сгенерировать миграции Alembic.',
+    )
+    makemigration_parser.add_argument(
+        '-m', '--message',
+        required=True,
+        help='Описание миграции.',
+    )
+    makemigration_parser.add_argument(
+        '--autogenerate',
+        action='store_true',
+        help='Автогенерация миграции.',
     )
 
     return parser
@@ -143,15 +158,27 @@ def _cmd_start_worker(loglevel: str, concurrency: str, extra: list[str]) -> int:
     return 0
 
 
-def _cmd_migrate(revision: str) -> int:
-    """Применяет миграции Alembic, используя настройки из окружения."""
-
+def _get_alembic_config():
     alembic_config = Config('alembic.ini')
-    
+
     if settings.ALEMBIC_DATABASE_URL:
         alembic_config.set_main_option('sqlalchemy.url', settings.ALEMBIC_DATABASE_URL)
 
-    alembic_command.upgrade(alembic_config, revision)
+    return alembic_config
+
+
+def _cmd_migrate(revision: str) -> int:
+    """Применяет миграции Alembic, используя настройки из окружения."""
+
+    alembic_command.upgrade(_get_alembic_config(), revision)
+
+    return 0
+
+
+def _cmd_makemigration(autogenerate: bool, message: str) -> int:
+    """Создает файл миграции."""
+
+    alembic_command.revision(_get_alembic_config(), message, autogenerate)
 
     return 0
 
@@ -175,6 +202,8 @@ def main(argv: list[str] | None = None) -> int:
             result = _cmd_start_worker(args.loglevel, args.concurrency, extra)
         case 'migrate':
             result = _cmd_migrate(args.revision)
+        case 'makemigration':
+            result = _cmd_makemigration(args.autogenerate, args.message)
         case _:
             parser.print_help()
             result = 1

@@ -1,6 +1,3 @@
-from app.db.models import (
-    Base,
-    CeleryTask,
-)
+from app.db.models import Base, DownloadTask, TaskStatus
 
-__all__ = ['Base', 'CeleryTask']
+__all__ = ['Base', 'DownloadTask', 'TaskStatus']

@@ -1,53 +1,47 @@
-from datetime import datetime
+"""Общие ORM-модели проекта (не относящиеся к конкретному сайту)."""
+
+from __future__ import annotations
+
 from enum import Enum
-import uuid
+from typing import Optional
 
-from sqlalchemy import DateTime, String, Uuid, func, Enum as SAEnum
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base, IdMixin, TimestampMixin
 
 
-class StatusEnum(Enum):
+class TaskStatus(str, Enum):
+    """Статусы задачи скачивания."""
+
     PENDING = 'pending'
     RUNNING = 'running'
     FAILED = 'failed'
     SUCCESS = 'completed'
 
 
-class Base(DeclarativeBase):
-    pass
+class DownloadTask(Base, IdMixin, TimestampMixin):
+    """Задача скачивания CSV с сайта (общая для всех сайтов)."""
 
+    __tablename__ = 'download_tasks'
 
-class CeleryTask(Base):
-    __tablename__ = 'celery_task'
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid,
-        primary_key=True,
-        default=uuid.uuid4,
-    )
     site_name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
         index=True,
     )
-    status: Mapped[StatusEnum] = mapped_column(
+    status: Mapped[TaskStatus] = mapped_column(
         SAEnum(
-            StatusEnum,
+            TaskStatus,
             values_callable=lambda e: [m.value for m in e],
             name='status_enum',
         ),
-        default=StatusEnum.PENDING,
+        default=TaskStatus.PENDING,
         nullable=False,
         index=True,
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+
+__all__ = ['Base', 'IdMixin', 'TimestampMixin', 'TaskStatus', 'DownloadTask']
